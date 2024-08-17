@@ -1,0 +1,87 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/rdma/ib_verbs.h>
+#include <linux/rdma/rdma_cm.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Benjamin Rastum");
+MODULE_DESCRIPTION("Advanced RDMA Communication Kernel Module");
+
+static struct ib_device *rdma_dev;
+static struct ib_pd *protection_domain;
+static struct ib_qp *queue_pair;
+static struct ib_cq *completion_queue;
+
+static int __init rdma_init(void)
+{
+    int ret;
+
+    printk(KERN_INFO "Initializing RDMA Communication Module...\n");
+
+    // Acquire RDMA device
+    rdma_dev = ib_alloc_device();
+    if (!rdma_dev) {
+        printk(KERN_ERR "Failed to allocate RDMA device\n");
+        return -ENODEV;
+    }
+
+    // Create Protection Domain
+    protection_domain = ib_alloc_pd(rdma_dev);
+    if (IS_ERR(protection_domain)) {
+        printk(KERN_ERR "Failed to allocate Protection Domain\n");
+        ret = PTR_ERR(protection_domain);
+        goto free_dev;
+    }
+
+    // Create Completion Queue
+    completion_queue = ib_create_cq(rdma_dev, NULL, NULL, NULL, 0);
+    if (IS_ERR(completion_queue)) {
+        printk(KERN_ERR "Failed to create Completion Queue\n");
+        ret = PTR_ERR(completion_queue);
+        goto free_pd;
+    }
+
+    // Create Queue Pair
+    queue_pair = ib_create_qp(protection_domain, &(struct ib_qp_init_attr){
+        .qp_type = IB_QPT_RC,
+        .send_cq = completion_queue,
+        .recv_cq = completion_queue,
+        .cap = {
+            .max_send_wr = 10,
+            .max_recv_wr = 10,
+            .max_send_sge = 1,
+            .max_recv_sge = 1,
+        },
+    });
+
+    if (IS_ERR(queue_pair)) {
+        printk(KERN_ERR "Failed to create Queue Pair\n");
+        ret = PTR_ERR(queue_pair);
+        goto free_cq;
+    }
+
+    printk(KERN_INFO "RDMA Communication Module Initialized Successfully\n");
+    return 0;
+
+free_cq:
+    ib_free_cq(completion_queue);
+free_pd:
+    ib_dealloc_pd(protection_domain);
+free_dev:
+    ib_dealloc_device(rdma_dev);
+    return ret;
+}
+
+static void __exit rdma_exit(void)
+{
+    printk(KERN_INFO "Exiting RDMA Communication Module...\n");
+    ib_destroy_qp(queue_pair);
+    ib_free_cq(completion_queue);
+    ib_dealloc_pd(protection_domain);
+    ib_dealloc_device(rdma_dev);
+    printk(KERN_INFO "RDMA Communication Module Exited Successfully\n");
+}
+
+module_init(rdma_init);
+module_exit(rdma_exit);
