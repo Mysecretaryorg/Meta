@@ -1,0 +1,83 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/rdma/ib_verbs.h>
+#include <linux/rdma/rdma_cm.h>
+#include <linux/proc_fs.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Benjamin Rastum");
+MODULE_DESCRIPTION("RDMA Performance Monitoring and Debugging Kernel Module");
+
+static struct proc_dir_entry *proc_file;
+
+// Structure to hold performance metrics
+struct rdma_perf_stats {
+    uint64_t packets_sent;
+    uint64_t packets_received;
+    uint64_t bytes_sent;
+    uint64_t bytes_received;
+    uint64_t total_latency_ns;
+};
+
+static struct rdma_perf_stats perf_stats;
+
+static void update_perf_stats(struct ib_wc *wc)
+{
+    // Update statistics based on the work completion (wc) event
+    if (wc->opcode == IB_WC_SEND || wc->opcode == IB_WC_RDMA_WRITE) {
+        perf_stats.packets_sent++;
+        perf_stats.bytes_sent += wc->byte_len;
+    } else if (wc->opcode == IB_WC_RECV || wc->opcode == IB_WC_RDMA_READ) {
+        perf_stats.packets_received++;
+        perf_stats.bytes_received += wc->byte_len;
+        perf_stats.total_latency_ns += wc->wc_flags; // Assuming latency is stored here
+    }
+}
+
+// Hook function to be injected into the RDMA communication path
+static void rdma_wc_hook(struct ib_cq *cq, void *ctx)
+{
+    struct ib_wc wc;
+    while (ib_poll_cq(cq, 1, &wc) > 0) {
+        update_perf_stats(&wc);
+    }
+}
+
+// Proc file read function to display performance stats
+static ssize_t proc_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+{
+    char buffer[256];
+    int len = snprintf(buffer, sizeof(buffer),
+                       "Packets Sent: %llu\nPackets Received: %llu\nBytes Sent: %llu\nBytes Received: %llu\nTotal Latency (ns): %llu\n",
+                       perf_stats.packets_sent,
+                       perf_stats.packets_received,
+                       perf_stats.bytes_sent,
+                       perf_stats.bytes_received,
+                       perf_stats.total_latency_ns);
+
+    return simple_read_from_buffer(buf, count, ppos, buffer, len);
+}
+
+static const struct proc_ops proc_file_ops = {
+    .proc_read = proc_read,
+};
+
+static int __init rdma_perf_monitor_init(void)
+{
+    proc_file = proc_create("rdma_perf_stats", 0444, NULL, &proc_file_ops);
+    if (!proc_file) {
+        printk(KERN_ERR "Failed to create /proc/rdma_perf_stats\n");
+        return -ENOMEM;
+    }
+    printk(KERN_INFO "RDMA Performance Monitoring Module Initialized\n");
+    return 0;
+}
+
+static void __exit rdma_perf_monitor_exit(void)
+{
+    proc_remove(proc_file);
+    printk(KERN_INFO "RDMA Performance Monitoring Module Exited\n");
+}
+
+module_init(rdma_perf_monitor_init);
+module_exit(rdma_perf_monitor_exit);
