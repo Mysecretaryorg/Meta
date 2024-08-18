@@ -2,7 +2,7 @@ RDMA Kernel Module for High-Performance Interconnects
 
 Overview
 
-This repository contains a Linux kernel module that demonstrates the implementation of RDMA (Remote Direct Memory Access) communication. The module is designed to showcase my expertise in Linux kernel development, particularly in the areas relevant to a Software Engineer - Linux Kernel Engineer role at Meta.
+This repository contains a Linux kernel module that demonstrates the implementation of RDMA (Remote Direct Memory Access) communication.
 
 Features
 
@@ -15,13 +15,13 @@ Installation
 To build and install the kernel module:
 
 bash
-Kopier kode
+copy code
 make
 sudo insmod rdma_module.ko
 To remove the module:
 
 bash
-Kopier kode
+copy copy
 sudo rmmod rdma_module
 Usage
 
