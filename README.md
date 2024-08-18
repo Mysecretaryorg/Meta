@@ -2,7 +2,7 @@ RDMA Kernel Module for High-Performance Interconnects
 
 Overview
 
-This repository contains an advanced Linux kernel module that demonstrates the implementation of RDMA (Remote Direct Memory Access) communication. The module is designed to showcase my expertise in Linux kernel development, particularly in the areas relevant to a Software Engineer - Linux Kernel Engineer role at Meta.
+This repository contains a Linux kernel module that demonstrates the implementation of RDMA (Remote Direct Memory Access) communication. The module is designed to showcase my expertise in Linux kernel development, particularly in the areas relevant to a Software Engineer - Linux Kernel Engineer role at Meta.
 
 Features
 
